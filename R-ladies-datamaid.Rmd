@@ -1,0 +1,594 @@
+---
+title: "R-Ladies: Introduction to Data Cleaning with `dataMaid`"
+author: "Molly Olson, MS"
+date: "March 19, 2018"
+output: 
+  prettydoc::html_pretty:
+    theme: leonids
+    highlight: github
+    toc: yes
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+<style type="text/css">
+
+div.main-container {
+    max-width: 3200px;
+}
+
+.tocify-header {
+    text-indent: 0;
+}
+
+div.tocify {
+  max-width: 100%;
+}
+</style>
+
+
+  <script language="javascript"> 
+    function toggle(num) {
+      var ele = document.getElementById("toggleText" + num);
+      var text = document.getElementById("displayText" + num);
+      if(ele.style.display == "block") {
+        ele.style.display = "none";
+        text.innerHTML = "show";
+      }
+      else {
+        ele.style.display = "block";
+        text.innerHTML = "hide";
+      }
+   } 
+  </script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(diagram)
+require(kableExtra)
+require(knitr)
+require(data.table)
+```
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 150)
+```
+# What is the `dataMaid` package?
+
+<a id="displayText" href="javascript:toggle(4);">Show 
+</a>  
+<div id="toggleText4" style="display: none"> 
+
+Short answer : 
+
+* A data cleaning assistant that is able to provide a document to be read and evaluated by a human. 
+* A tool to aid in logic/error checks both column and row-wise 
+
+Long answer : read documentation
+
+</div>
+
+# Goals 
+
+<a id="displayText" href="javascript:toggle(5);">Show 
+</a>  
+<div id="toggleText5" style="display: none">  
+
+
+* Data screening/cleaning with the `dataMaid` package
+* Extend data cleaning checks with `dataMaid`
+* Use `validate` to inspect row-wise errors
+
+</div>
+
+
+# Examples of errors in data and data cleaning checks
+
+<a id="displayText" href="javascript:toggle(6);">Show 
+</a>  
+<div id="toggleText6" style="display: none">  
+
+* Incorrect class
+* Duplicates
+* Capitalization consistency (new York vs New York)
+* Unlikely value (BMI = 0.1, age = 201)
+* White spaces
+* Unrecognized missingness indicators
+* Amount of missingness
+* Unique observations / categories with low count
+* Inaccurate data (death date before birth date)
+
+</div>
+
+
+# Workflow with `dataMaid`
+
+<a id="displayText" href="javascript:toggle(7);">Show 
+</a>  
+<div id="toggleText7" style="display: none"> 
+
+```{r, echo = FALSE}
+names <- c("Data frame", "Summarize/ \n Visualize", "Check/Inspect", "Validate", "Fix", "Done")
+
+M <- matrix(nrow = 6, ncol = 6, byrow = TRUE, data = c(
+#d s  c  v  f   d
+0, 0, 0, 0, 0, 0, #d
+"", 0, 0, "Errors", "", 0, #s
+0, "", 0, 0, 0, 0, #c
+0, 0, "Correct", 0, 0, 0, #v
+0, 0, "Errors", 0, 0, 0, #f
+0, 0, 0, "Correct", 0, 0 #d
+))
+#
+
+pp <- plotmat(M, pos = c(3,2,1), curve = 0, name = names,
+lwd = 1, box.lwd = 2, cex.txt = 0.7,
+box.type = "square", box.prop = 0.5, arr.type = "simple", arr.length = 0.55,
+arr.pos = 0.5, shadow.size = 0, prefix = "",
+main = "")
+#
+
+```
+
+Summarize: What information does the variable have?  
+Visualize: What does the distribution of the variable look like?  
+Check: What potential problems are there with the variable?  
+Fix: Fix problems.  
+Validate: Did we actually fix the problem and/or check row-wise errors.  
+
+</div>
+
+# Summarize/Visualize
+
+
+<a id="displayText" href="javascript:toggle(9);">Show 
+</a>  
+<div id="toggleText9" style="display: none"> 
+
+```{r, results = "asis", echo = FALSE}
+static_help <- function(pkg, topic, out, links = tools::findHTMLlinks()) {
+  pkgRdDB = tools:::fetchRdDB(file.path(find.package(pkg), 'help', pkg))
+  force(links)
+  tools::Rd2HTML(pkgRdDB[[topic]], out, package = pkg,
+                 Links = links, no_links = is.null(links))
+}
+
+tmp <- tempfile()
+
+static_help("dataMaid","makeDataReport",tmp)
+
+out <- readLines(tmp)
+headfoot <- grep("body", out)
+cat(out[(headfoot[1] + 1):(headfoot[2] - 1)], sep = "\n")
+```
+
+</div>
+
+<a id="displayText" href="javascript:toggle(8);">Show 
+</a>  
+<div id="toggleText8" style="display: none"> 
+
+```{r, echo = TRUE, message = FALSE}
+require(dataMaid)
+head(bigPresidentData)
+bigPresidentData <- as.data.table(bigPresidentData)
+```
+
+```{r, eval = FALSE}
+makeDataReport(bigPresidentData)
+```
+
+
+**Default report:**  
+
+* Identifies miscoded missing values  
+* Identifies prefixed and suffixed (the following appear with the prefix or suffix *x*)  
+* Checks whitespaces  
+* Identifies levels with < 6 observations  
+* Identifies case issues  
+* Identifies misclassified numeric or integer variables  
+* Identifies outliers  
+* Provides a summary table of variable class, number of unique observations, missingness and any problems  
+* "Column-wise" checks
+
+
+</div>
+
+## Using `dataMaid` interactively
+
+<a id="displayText" href="javascript:toggle(12);">Check
+</a>  
+<div id="toggleText12" style="display: none"> 
+
+```{r, results = "asis"}
+allCheckFunctions()
+```
+
+```{r}
+## syntax
+
+## numeric class
+check(bigPresidentData$presidencyYears
+      , numericChecks = c("identifyMissing","identifyOutliers"))
+check(bigPresidentData$presidencyYears
+      , checks = setChecks(numeric = c("identifyMissing")))
+check(bigPresidentData$presidencyYears
+      , checks = setChecks())
+
+## factor class
+check(bigPresidentData$ethnicity
+      , factorChecks = c("identifyCaseIssues","identifyLoners"))
+check(bigPresidentData$ethnicity
+      , checks = setChecks(factor = c("identifyLoners")))
+check(bigPresidentData$ethnicity
+      , checks = setChecks())
+
+## both
+check(bigPresidentData[,.(ethnicity, presidencyYears)]
+      , checks = setChecks(numeric = "identifyOutliers"
+                         , factor  = "identifyLoners"))
+```
+
+
+```{r, echo = T}
+identifyWhitespace(bigPresidentData$firstName)
+identifyWhitespace(bigPresidentData$lastName)
+
+check(bigPresidentData[,.(firstName, lastName)]
+      , checks = setChecks(character = "identifyWhitespace"))
+```
+
+</div>
+
+
+<a id="displayText" href="javascript:toggle(10);">Visualize 
+</a>  
+<div id="toggleText10" style="display: none"> 
+
+```{r, results = "asis"}
+allVisualFunctions()
+```
+
+```{r}
+visualize(bigPresidentData$ageAtInauguration, vnam = "Age at inauguration")
+
+basicVisual(bigPresidentData$party, vnam = "Party")
+standardVisual(bigPresidentData$party, vnam = "Party") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+</div>
+
+
+<a id="displayText" href="javascript:toggle(11);">Summarize
+</a>  
+<div id="toggleText11" style="display: none"> 
+
+```{r, results = "asis"}
+allSummaryFunctions()
+```
+
+```{r, echo = T}
+summarize(bigPresidentData$lastName)
+# summarize(bigPresidentData)
+
+lapply(bigPresidentData, variableType) %>% head
+```
+
+</div>
+
+## Extending `dataMaid`
+
+<a id="displayText" href="javascript:toggle(14);">Show
+</a>  
+<div id="toggleText14" style="display: none"> 
+
+Customize your own checking, visual, or summary functions!
+
+**Templates:**
+```{r, echo = T, eval = F}
+mySummaryFunction <- summary(v, ...){
+  val <- [ result of whatever summary you want to do ]
+  res <- [ properly escaped version of val ]
+  summaryResult(list( feature = "[Feature name]"
+                    , result  = res
+                    , value   = val
+                ))
+}
+```
+
+```{r, echo = T, eval = F}
+isSNN <- function(v, nMax = NULL, ...){
+  out <- list(problem = FALSE
+            , message = ""
+            , problemValues = NULL)
+  if (class(v) %in% c("character","factor","labelled")){
+    if(any(grep("\\d{3}-\\d{3}-\\d{4}",v))) {
+      out$problem <- TRUE
+      out$message <- "Warning: may contain SSNs"
+      out$problemValues <- "Will not show"
+    }
+  }
+  out
+}
+```
+
+**Examples:**
+
+*Basic example:*
+```{r, echo = T}
+refCat <- function(v, ...) {
+  out <- list(factor = FALSE
+            , reference = ""
+            , problemValues = NULL)
+  if(class(v) %in% c("factor")) {
+    out$factor <- TRUE
+    out$reference <- levels(v)[1]
+    out$problemValues <- "Not applicable"
+  }
+  out
+}
+
+refCat <- summaryFunction(refCat
+                        , description = "Identifies reference level"
+                        , classes = c("factor"))
+
+check(bigPresidentData$sex, factorChecks = "refCat")
+```
+
+*More advanced example:*
+```{r, echo = T}
+identifyNonStartCase <- function(v, nMax = 10, ...){
+  v <- unique(na.omit(v)) ## omit NA values and keep only unique values
+  vSplit <- strsplit(v, split = " ") ## split around blank spaces
+  vSplitAllLower <- sapply(vSplit, tolower) ## make all lowercase
+  helper <- function(x){ ## helper function to make first letter capital
+    capFirstLetters <- toupper(substring(x, 1, 1))
+    x <- paste(capFirstLetters, substring(x, 2), sep = "")
+    x
+  }
+  vSplitStartCase <- sapply(vSplit, helper) ## first letter capital version of v
+  vStartCase <- sapply(vSplitStartCase, function(x) paste(x, collapse = " "))
+  
+  ## find where v and vStartCase differ
+  problemPlaces <- v != vStartCase
+  
+  if(any(problemPlaces)){
+    problemValues <- v[problemPlaces]
+  } else {
+    problemValues <- NULL
+  }
+  
+  problem <- any(problemPlaces)
+  
+  problemStatus <- list(problem = problem
+                      , problemValues = problemValues)
+  problemMessage <- "The following variables were not in start case:"
+  outMessage <- messageGenerator(problemStatus, problemMessage, nMax)
+  
+  checkResult(list(problem = problem
+                 , message = outMessage
+                 , problemValues = problemValues))
+}
+
+identifyNonStartCase <- checkFunction(identifyNonStartCase
+                                    , description = "Identifies entries that are not written in start case"
+                                    , classes = c("character", "factor"))
+
+check(bigPresidentData$stateOfBirth, checks = setChecks(character = "identifyNonStartCase"))
+```
+
+```{r, results = "asis"}
+allCheckFunctions()
+```
+
+## Customizing document
+
+
+
+```{r, echo = FALSE}
+#Copy data. This is the data we will make changes to.
+bpd <- bigPresidentData
+#We fix the following mistake:
+#Aragorn Arathornson is included in the dataset.
+bpd <- bpd[!(bpd$firstName == "Aragorn" & bpd$lastName == "Arathornson"
+),]
+#We fix the following mistake:
+#Trump has "." listed as his first name (firstName).
+bpd[bpd$lastName == "Trump", "firstName"] <- "Donald"
+#We fix the following mistake:
+#Obama's presidency duration is listed as infinite (presidencyYears).
+bpd[bpd$lastName == "Obama", "presidencyYears"] <-
+ floor((bpd$presidencyEndDate[bpd$lastName == "Obama"] -
+ bpd$presidencyBeginDate[bpd$lastName == "Obama"])/365.25)
+#We fix the following mistake:
+#Trump's state of birth (New York) was spelled with a lower case "y" (stateOfBirth).
+bpd[bpd$lastName == "Trump", "stateOfBirth"] <- "New York"
+#We fix the following mistake:
+#Truman's last name is prefixed with whitespace (lastName).
+bpd[bpd$lastName == " Truman", "lastName"] <- "Truman"
+#We fix the following mistake:
+#ageAtInauguration is coded as a character variable.
+bpd$ageAtInauguration <- as.numeric(bpd$ageAtInauguration)
+#We fix the following mistake:
+#The dates marking the beginning and end of the presidency
+#(presidencyBeginDate, presidencyEndDate) have been switched for Theodore and
+#Franklin Roosevelt.
+TRbegin <- bpd$presidencyBeginDate[bpd$firstName == "Franklin" &
+                                     bpd$lastName == "Roosevelt"]
+FRbegin <- bpd$presidencyBeginDate[bpd$firstName == "Theodore" &
+                                     bpd$lastName == "Roosevelt"]
+TRend <- bpd$presidencyEndDate[bpd$firstName == "Franklin" &
+                                 bpd$lastName == "Roosevelt"]
+
+FRend <- bpd$presidencyEndDate[bpd$firstName == "Theodore" & bpd$lastName
+ == "Roosevelt"]
+bpd$presidencyBeginDate[bpd$firstName == "Franklin" & bpd$lastName == "Ro
+osevelt"] <- FRbegin
+bpd$presidencyBeginDate[bpd$firstName == "Theodore" & bpd$lastName == "Ro
+osevelt"] <- TRbegin
+bpd$presidencyEndDate[bpd$firstName == "Franklin" & bpd$lastName == "Roos
+evelt"] <- FRend
+bpd$presidencyEndDate[bpd$firstName == "Theodore" & bpd$lastName == "Roos
+evelt"] <- TRend
+#We fix the following mistake:
+#Jimmy Carter's end of presidency date (presidencyEndDate) has been changed such that
+#his presidency overlaps with the subsequent president, Ronald Reagan.
+bpd$presidencyEndDate[bpd$firstName == "Jimmy" & 
+                        bpd$lastName == "Carter"] <- as.Date("1975-01-14")
+#We fix the following mistake:
+#James Garfield's state of birth (stateOfBirth) has been changed from Ohio to Indiana
+#(state of birth of Jim Davis, the creator of the cartoon "Garfield").
+bpd$stateOfBirth[bpd$firstName == "James" & 
+                   bpd$lastName == "Garfield"] <- "Ohio"
+#We fix the following mistake:
+#Calvin Goolidge has had his first name changed to "Hobbes" (firstName).
+bpd$firstName[bpd$firstName == "Hobbes"] <- "Calvin"
+##We fix the following mistake:
+#Chester Arthur has had his presidency duration (presidencyYears) changed from 3 to 5 years
+bpd$presidencyYears[bpd$firstName == "Chester" & 
+                      bpd$lastName == "Arthur"] <- 3
+#We fix the following mistake:
+#Eisenhower appears twice in the dataset, one time with the first name "Dwight"
+#and one time with the first name "Dwight D".
+#Note: We delete the observation with the extra "D" as the other presidents do
+#not have their middle names included
+bpd <- bpd[bpd$firstName != "Dwight D",]
+#Save a new copy of the data
+saveRDS(bpd, file = "bigPresidentData_cleaned.rds")
+```
+
+</div>
+
+# Validate
+
+<a id="displayText" href="javascript:toggle(15);">Show 
+</a>  
+<div id="toggleText15" style="display: none"> 
+```{r, message = F}
+require(validate)
+```
+
+This mostly serves as a logic check (ex. death date is later than birth date) and row-wise checks. 
+
+First, create a `validator` object:
+```{r}
+validator1 <- validator(
+  ageAtDeath := floor((dateOfDeath - birthday)/365.25)
+  , `Adult president` = ageAtInauguration >= 18
+  , `Alive at inauguration` = ageAtDeath >= ageAtInauguration
+  , `Positive first name` = firstName*2 > firstName
+  , `Death by assassination` = 
+             if (dateOfDeath == presidencyEndDate) 
+               assassinationAttempt == 1
+  , `Begin date` = difftime(presidencyEndDate, as.Date("176-08-04")) > 0
+)
+```
+
+```{r}
+confront_messy <- confront(bigPresidentData, validator1)
+summary(confront_messy) %>% kable
+
+errors(confront_messy)
+
+bpd_clean <- readRDS("bigPresidentData_cleaned.rds")
+confront_clean <- confront(bpd_clean, validator1)
+summary(confront_clean) %>% kable
+```
+
+```{r}
+orderVal <- validator(rank(presidencyBeginDate) == rank(orderOfPresidency))
+
+orderCon_messy <- confront(
+  na.omit(bigPresidentData[,.(presidencyBeginDate, orderOfPresidency)])
+  , orderVal
+)
+summary(orderCon_messy) %>% kable
+
+orderCon_clean <- confront(
+  na.omit(bpd_clean[,.(presidencyBeginDate, orderOfPresidency)])
+  , orderVal
+)
+summary(orderCon_clean) %>% kable
+```
+
+Overview of confrontation results:
+```{r}
+summary(confront_messy)
+```
+Compute percentage pass/fail/NA:
+```{r}
+aggregate(confront_messy)
+```
+Sort results by problem prevalence:
+```{r}
+sort(confront_messy)
+```
+For each observation and each check: `TRUE/FALSE/NA`
+```{r}
+values(confront_messy)
+```
+Visual overview of check results:
+```{r}
+barplot(confront_messy)
+```
+What errors were there:
+```{r}
+errors(confront_messy)
+```
+What warnings were there:
+```{r}
+warnings(confront_messy)
+```
+
+</div>
+
+# Make Codebook
+<a id="displayText" href="javascript:toggle(16);">Show 
+</a>  
+<div id="toggleText16" style="display: none"> 
+
+```{r, eval = FALSE}
+makeCodebook(bpd_clean)
+```
+
+</div>
+
+# Pros and Cons
+
+<a id="displayText" href="javascript:toggle(25);">Show 
+</a>  
+<div id="toggleText25" style="display: none"> 
+
+## Pros
+
+* Provides a solution and workflow for data cleaning
+
+* Fairly fast even with millions of data
+
+* Can help (prevent) coding errors (`rms` really has trouble with low observations, can find these before hitting errors)
+
+* Helps with collaborations (especially consultations!)
+  + Variables in a dataset can usually only be understood in the proper context of their origin 
+  + Requires a collaborative effort between an expert in the field and a statistician 
+  + Readable to both parties
+
+* Easy for statistician to document what was or was not done
+
+## Cons
+
+* Hard to parse through with lots of data (variables)
+
+* Cannot use non-class dependent variable constraints
+
+
+
+</div>
+
+# Resources
+Ekstrom, C.T., Peterson, A.H. (2018, February). Cleaning Up the Data Cleaning Process. Short course at the Conference on Statistical Practice, Portland, OR.
+
+Ekstrom, C.T., Peterson, A.H. (2018, February). Cleaning Up the Data Cleaning Process. Short course at the Conference on Statistical Practice, Portland, OR [*Course slides*] .
